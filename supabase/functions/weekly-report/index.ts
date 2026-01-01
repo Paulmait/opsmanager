@@ -222,16 +222,12 @@ async function handleCronTrigger(req: Request): Promise<Response> {
         });
 
         // Log audit for cron execution
-        await logAudit({
+        // Note: System-triggered actions logged without actor_id to metadata only
+        console.log("Cron report generated:", {
           organization_id: orgId,
-          actor_id: "system",
           action: "weekly_report.cron",
-          resource_type: "report",
-          resource_id: report.report_id,
-          metadata: {
-            triggered_by: "cron",
-            total_runs: report.summary.total_runs,
-          },
+          report_id: report.report_id,
+          total_runs: report.summary.total_runs,
         });
       } catch (error) {
         results.push({
@@ -292,8 +288,8 @@ async function generateReport(
     .select("*", { count: "exact", head: true })
     .eq("organization_id", org_id)
     .eq("status", "approved")
-    .gte("decided_at", start.toISOString())
-    .lt("decided_at", end.toISOString());
+    .gte("responded_at", start.toISOString())
+    .lt("responded_at", end.toISOString());
 
   // Calculate summary
   const summary = calculateSummary(runs ?? [], pendingApprovals ?? 0, totalActions ?? 0);
@@ -301,25 +297,17 @@ async function generateReport(
   // Generate highlights
   const highlights = generateHighlights(summary, runs ?? []);
 
-  // Create report record
-  const { data: reportRecord } = await supabase
-    .from("audit_logs")
-    .insert({
-      organization_id: org_id,
-      actor_id: "system",
-      action: "weekly_report.generated",
-      resource_type: "report",
-      metadata: {
-        period_start: start.toISOString(),
-        period_end: end.toISOString(),
-        summary,
-        highlights,
-      },
-    })
-    .select("id")
-    .single();
+  // Generate report ID (don't insert to audit_logs without valid actor_id)
+  const reportId = crypto.randomUUID();
 
-  const reportId = reportRecord?.id ?? crypto.randomUUID();
+  // Log report generation to console (system-triggered)
+  console.log("Weekly report generated:", {
+    report_id: reportId,
+    organization_id: org_id,
+    period_start: start.toISOString(),
+    period_end: end.toISOString(),
+    summary,
+  });
 
   // Send email if requested
   let emailSent = false;

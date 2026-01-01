@@ -238,9 +238,9 @@ async function executeAgentPipeline(
     .insert({
       organization_id: org_id,
       agent_type: "planner",
-      input: trigger_payload,
+      input_data: trigger_payload,
       status: "running",
-      created_by: userId,
+      triggered_by: userId,
     })
     .select("id")
     .single();
@@ -284,7 +284,7 @@ async function executeAgentPipeline(
     await supabase
       .from("agent_runs")
       .update({
-        output: { plan, validation },
+        output_data: { plan, validation },
         tokens_used: 500, // Simulated
         cost_cents: 1, // Simulated
       })
@@ -319,8 +319,9 @@ async function executeAgentPipeline(
         .insert({
           organization_id: org_id,
           agent_run_id: runId,
-          requested_actions: plan.actions,
-          risk_level: plan.overall_risk,
+          action_type: plan.actions[0]?.tool_calls?.[0]?.tool ?? "agent_action",
+          action_summary: `${plan.actions.length} action(s) for: ${plan.goal}`,
+          action_details: { actions: plan.actions, risk_level: plan.overall_risk },
           status: "pending",
           requested_by: userId,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
@@ -385,13 +386,13 @@ async function updateRunStatus(
   supabase: ReturnType<typeof createAdminClient>,
   runId: string,
   status: string,
-  error?: string
+  errorMessage?: string
 ): Promise<void> {
   await supabase
     .from("agent_runs")
     .update({
       status,
-      ...(error && { error }),
+      ...(errorMessage && { error_message: errorMessage }),
       ...(status === "completed" && { completed_at: new Date().toISOString() }),
     })
     .eq("id", runId);

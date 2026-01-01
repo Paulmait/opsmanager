@@ -106,8 +106,8 @@ serve(async (req: Request): Promise<Response> => {
         id,
         organization_id,
         agent_run_id,
-        requested_actions,
-        risk_level,
+        action_details,
+        action_type,
         status,
         requested_by,
         expires_at
@@ -176,7 +176,8 @@ serve(async (req: Request): Promise<Response> => {
       resource_id: input.approval_id,
       metadata: {
         agent_run_id: approval.agent_run_id,
-        risk_level: approval.risk_level,
+        action_type: approval.action_type,
+        risk_level: approval.action_details?.risk_level ?? "unknown",
         reason: input.reason,
         executed: result.status === "executed",
       },
@@ -219,8 +220,8 @@ async function processDecision(
     id: string;
     organization_id: string;
     agent_run_id: string;
-    requested_actions: unknown;
-    risk_level: string;
+    action_details: { actions?: unknown[]; risk_level?: string };
+    action_type: string;
     requested_by: string;
   },
   userId: string
@@ -233,9 +234,9 @@ async function processDecision(
       .from("approvals")
       .update({
         status: "rejected",
-        decided_by: userId,
-        decided_at: now,
-        decision_reason: input.reason,
+        responded_by: userId,
+        responded_at: now,
+        response_note: input.reason,
       })
       .eq("id", input.approval_id);
 
@@ -244,7 +245,7 @@ async function processDecision(
       .from("agent_runs")
       .update({
         status: "rejected",
-        error: input.reason ?? "Rejected by admin",
+        error_message: input.reason ?? "Rejected by admin",
       })
       .eq("id", approval.agent_run_id);
 
@@ -257,7 +258,7 @@ async function processDecision(
   }
 
   // Approve decision
-  const actions = approval.requested_actions as Array<{
+  const actions = (approval.action_details?.actions ?? []) as Array<{
     tool_calls: Array<{ tool: string; parameters: Record<string, unknown> }>;
   }>;
 
@@ -282,9 +283,9 @@ async function processDecision(
       .from("approvals")
       .update({
         status: "approved",
-        decided_by: userId,
-        decided_at: now,
-        decision_reason: "Approved but execution deferred due to rate limit",
+        responded_by: userId,
+        responded_at: now,
+        response_note: "Approved but execution deferred due to rate limit",
       })
       .eq("id", input.approval_id);
 
@@ -316,9 +317,9 @@ async function processDecision(
       .from("approvals")
       .update({
         status: "approved",
-        decided_by: userId,
-        decided_at: now,
-        decision_reason: "Approved but execution deferred due to rate limit",
+        responded_by: userId,
+        responded_at: now,
+        response_note: "Approved but execution deferred due to rate limit",
       })
       .eq("id", input.approval_id);
 
@@ -336,9 +337,9 @@ async function processDecision(
     .from("approvals")
     .update({
       status: "approved",
-      decided_by: userId,
-      decided_at: now,
-      decision_reason: input.reason,
+      responded_by: userId,
+      responded_at: now,
+      response_note: input.reason,
     })
     .eq("id", input.approval_id);
 
@@ -360,7 +361,7 @@ async function processDecision(
       .update({
         status: allSucceeded ? "completed" : "failed",
         completed_at: now,
-        output: { execution_results: executionResults },
+        output_data: { execution_results: executionResults },
       })
       .eq("id", approval.agent_run_id);
 
