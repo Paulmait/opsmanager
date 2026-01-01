@@ -16,7 +16,11 @@
       "Bash(git remote add:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Ops Manager MVP with full QA harness\n\nProduction-ready Next.js 14 + Supabase multi-tenant SaaS scaffold:\n\n- Authentication with Supabase Auth\n- Multi-tenant RLS \\(Row Level Security\\) on all tables\n- Stripe billing integration with webhooks\n- Email ingestion system with HMAC signature verification\n- Agent framework with approval workflows\n- Comprehensive security controls \\(CSP, HSTS, X-Frame-Options\\)\n\nQA/Security Infrastructure:\n- Vitest unit tests \\(188 passing\\)\n- Playwright E2E test suite\n- RLS verification scripts\n- Semgrep SAST configuration\n- Gitleaks secret detection\n- Security documentation \\(THREAT_MODEL, SECURITY, DEPLOYMENT_CHECKLIST\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(where:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

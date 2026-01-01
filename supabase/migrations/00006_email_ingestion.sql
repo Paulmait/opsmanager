@@ -266,7 +266,7 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_email_aliases_updated_at
   BEFORE UPDATE ON email_aliases
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE FUNCTION update_updated_at();
 
 -- =============================================================================
 -- Comments

@@ -10,8 +10,9 @@
 -- that enforce organization-level isolation.
 -- =============================================================================
 
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID extension if not already enabled (for backward compatibility)
+-- Note: PostgreSQL 13+ has gen_random_uuid() built-in
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 
 -- =============================================================================
 -- ENUM Types
@@ -20,48 +21,18 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE user_role AS ENUM ('owner', 'admin', 'member');
 
 -- =============================================================================
--- Organizations Table
+-- Create All Tables First (Before Policies)
 -- =============================================================================
--- The top-level tenant boundary. All data is scoped to an organization.
 
+-- Organizations Table
 CREATE TABLE organizations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS
-ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-
--- Policy: Users can only see their own organization
-CREATE POLICY "Users can view their organization"
-    ON organizations
-    FOR SELECT
-    USING (
-        id IN (
-            SELECT organization_id FROM profiles
-            WHERE profiles.id = auth.uid()
-        )
-    );
-
--- Policy: Only owners can update organization
-CREATE POLICY "Owners can update organization"
-    ON organizations
-    FOR UPDATE
-    USING (
-        id IN (
-            SELECT organization_id FROM profiles
-            WHERE profiles.id = auth.uid()
-            AND profiles.role = 'owner'
-        )
-    );
-
--- =============================================================================
 -- Profiles Table
--- =============================================================================
--- User profiles linked to Supabase auth.users. Each user belongs to one org.
-
 CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -72,45 +43,9 @@ CREATE TABLE profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- Policy: Users can view profiles in their organization
-CREATE POLICY "Users can view org profiles"
-    ON profiles
-    FOR SELECT
-    USING (
-        organization_id IN (
-            SELECT organization_id FROM profiles AS p
-            WHERE p.id = auth.uid()
-        )
-    );
-
--- Policy: Users can update their own profile
-CREATE POLICY "Users can update own profile"
-    ON profiles
-    FOR UPDATE
-    USING (id = auth.uid())
-    WITH CHECK (
-        id = auth.uid()
-        -- Prevent users from changing their own role or org
-        AND organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
-    );
-
--- Policy: Allow new profile creation during signup (via trigger)
-CREATE POLICY "Service role can insert profiles"
-    ON profiles
-    FOR INSERT
-    WITH CHECK (true);  -- Controlled by trigger, not direct insert
-
--- =============================================================================
 -- Audit Logs Table
--- =============================================================================
--- Append-only audit trail for all significant actions.
--- SECURITY: Insert-only, no updates or deletes allowed.
-
 CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     actor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE SET NULL,
     action TEXT NOT NULL,
@@ -122,10 +57,66 @@ CREATE TABLE audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS
+-- =============================================================================
+-- Enable RLS on All Tables
+-- =============================================================================
+
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can view audit logs in their organization
+-- =============================================================================
+-- RLS Policies (After All Tables Exist)
+-- =============================================================================
+
+-- Organizations Policies
+CREATE POLICY "Users can view their organization"
+    ON organizations
+    FOR SELECT
+    USING (
+        id IN (
+            SELECT organization_id FROM profiles
+            WHERE profiles.id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Owners can update organization"
+    ON organizations
+    FOR UPDATE
+    USING (
+        id IN (
+            SELECT organization_id FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'owner'
+        )
+    );
+
+-- Profiles Policies
+CREATE POLICY "Users can view org profiles"
+    ON profiles
+    FOR SELECT
+    USING (
+        organization_id IN (
+            SELECT organization_id FROM profiles AS p
+            WHERE p.id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update own profile"
+    ON profiles
+    FOR UPDATE
+    USING (id = auth.uid())
+    WITH CHECK (
+        id = auth.uid()
+        AND organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())
+    );
+
+CREATE POLICY "Service role can insert profiles"
+    ON profiles
+    FOR INSERT
+    WITH CHECK (true);
+
+-- Audit Logs Policies
 CREATE POLICY "Users can view org audit logs"
     ON audit_logs
     FOR SELECT
@@ -136,7 +127,6 @@ CREATE POLICY "Users can view org audit logs"
         )
     );
 
--- Policy: Only admins/owners can insert audit logs (or via service role)
 CREATE POLICY "Admins can insert audit logs"
     ON audit_logs
     FOR INSERT
@@ -147,9 +137,6 @@ CREATE POLICY "Admins can insert audit logs"
             AND profiles.role IN ('owner', 'admin')
         )
     );
-
--- SECURITY: Explicitly deny updates and deletes (defense in depth)
--- RLS by default denies, but this makes intent explicit
 
 -- =============================================================================
 -- Indexes

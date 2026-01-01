@@ -123,7 +123,7 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- Tracks invites and membership status separately from profiles
 
 CREATE TABLE org_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     email TEXT NOT NULL,
@@ -191,7 +191,7 @@ CREATE POLICY "org_members_delete_policy"
 -- CRM-style contact management with minimal PII
 
 CREATE TABLE contacts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Core fields (minimal PII)
@@ -264,7 +264,7 @@ CREATE POLICY "contacts_delete_policy"
 -- Task management with org isolation
 
 CREATE TABLE tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Task details
@@ -352,7 +352,7 @@ CREATE POLICY "tasks_delete_policy"
 -- Tracks AI agent executions
 
 CREATE TABLE agent_runs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Execution details
@@ -443,7 +443,7 @@ ALTER TABLE tasks
 -- Approval workflow for agent actions
 
 CREATE TABLE approvals (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- What needs approval
@@ -525,7 +525,7 @@ ALTER TABLE agent_runs
 -- or stored in a separate secrets manager. This table stores references.
 
 CREATE TABLE integrations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Integration details

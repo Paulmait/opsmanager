@@ -19,7 +19,7 @@ CREATE TYPE user_role AS ENUM ('owner', 'admin', 'member');
 
 -- TABLE: Organizations
 CREATE TABLE organizations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -63,7 +63,7 @@ CREATE POLICY "Service role can insert profiles"
 
 -- TABLE: Audit Logs
 CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     actor_id UUID NOT NULL REFERENCES profiles(id) ON DELETE SET NULL,
     action TEXT NOT NULL,
@@ -250,7 +250,7 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- TABLE: Org Members
 CREATE TABLE org_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     email TEXT NOT NULL,
@@ -285,7 +285,7 @@ CREATE POLICY "org_members_delete_policy" ON org_members FOR DELETE USING (has_o
 
 -- TABLE: Contacts
 CREATE TABLE contacts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     email TEXT,
     full_name TEXT,
@@ -321,7 +321,7 @@ CREATE POLICY "contacts_delete_policy" ON contacts FOR DELETE USING (has_org_rol
 
 -- TABLE: Tasks
 CREATE TABLE tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
@@ -361,7 +361,7 @@ CREATE POLICY "tasks_delete_policy" ON tasks FOR DELETE USING (has_org_role(orga
 
 -- TABLE: Agent Runs
 CREATE TABLE agent_runs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     agent_type TEXT NOT NULL,
     status agent_run_status NOT NULL DEFAULT 'queued',
@@ -402,7 +402,7 @@ ALTER TABLE tasks ADD CONSTRAINT tasks_agent_run_id_fkey FOREIGN KEY (agent_run_
 
 -- TABLE: Approvals
 CREATE TABLE approvals (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     agent_run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
     action_type TEXT NOT NULL,
@@ -440,7 +440,7 @@ ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_approval_id_fkey FOREIGN KEY (a
 
 -- TABLE: Integrations
 CREATE TABLE integrations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     provider integration_provider NOT NULL,
     name TEXT NOT NULL,
@@ -858,18 +858,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Use existing update_updated_at function if available, otherwise create compatible one
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 CREATE TRIGGER update_email_aliases_updated_at
   BEFORE UPDATE ON email_aliases
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 ```
 
 ---
