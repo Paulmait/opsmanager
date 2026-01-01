@@ -1,0 +1,248 @@
+# =============================================================================
+# Semgrep Configuration - Ops Manager
+# =============================================================================
+# Custom rules for Next.js + Supabase security scanning
+#
+# Installation:
+#   Windows: pip install semgrep OR pipx install semgrep
+#   macOS/Linux: brew install semgrep
+#
+# Usage:
+#   semgrep scan --config .semgrep.yml --error
+#
+# =============================================================================
+
+rules:
+  # =========================================================================
+  # Secret Detection
+  # =========================================================================
+
+  - id: hardcoded-stripe-key
+    pattern-either:
+      - pattern: |
+          "sk_live_..."
+      - pattern: |
+          'sk_live_...'
+      - pattern-regex: sk_live_[a-zA-Z0-9]{24,}
+    message: "Hardcoded Stripe live key detected. Use environment variables."
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  - id: hardcoded-supabase-service-key
+    pattern-regex: eyJ[a-zA-Z0-9_-]{100,}\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+
+    message: "Potential hardcoded JWT/service key. Use environment variables."
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  - id: service-role-in-client
+    patterns:
+      - pattern: |
+          createClient($URL, $KEY, ...)
+      - pattern-inside: |
+          "use client"
+          ...
+      - metavariable-pattern:
+          metavariable: $KEY
+          pattern: |
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+    message: "Service role key used in client component. This bypasses RLS."
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-284: Improper Access Control"
+
+  # =========================================================================
+  # Injection Prevention
+  # =========================================================================
+
+  - id: dangerous-html-injection
+    pattern-either:
+      - pattern: |
+          dangerouslySetInnerHTML={{ __html: $VAR }}
+      - pattern: |
+          dangerouslySetInnerHTML={{__html: $VAR}}
+    message: "dangerouslySetInnerHTML can lead to XSS. Ensure input is sanitized."
+    languages: [typescript, javascript, tsx]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting (XSS)"
+
+  - id: raw-sql-query
+    pattern-either:
+      - pattern: |
+          $DB.query(`... ${$VAR} ...`)
+      - pattern: |
+          $DB.raw(`... ${$VAR} ...`)
+      - pattern: |
+          .execute(`... ${$VAR} ...`)
+    message: "Potential SQL injection. Use parameterized queries."
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+
+  # =========================================================================
+  # Authentication & Authorization
+  # =========================================================================
+
+  - id: missing-auth-check
+    patterns:
+      - pattern-inside: |
+          export async function $HANDLER($REQ, ...) {
+            ...
+          }
+      - pattern-not-inside: |
+          export async function $HANDLER($REQ, ...) {
+            ...
+            $AUTH = await $AUTHFN(...)
+            ...
+          }
+      - pattern: |
+          return NextResponse.json(...)
+      - metavariable-regex:
+          metavariable: $HANDLER
+          regex: (POST|PUT|PATCH|DELETE)
+    message: "API route may be missing authentication check."
+    languages: [typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-306: Missing Authentication"
+
+  - id: trusting-client-org-id
+    patterns:
+      - pattern-either:
+        - pattern: |
+            const orgId = $REQ.body.orgId
+        - pattern: |
+            const { orgId } = await $REQ.json()
+        - pattern: |
+            const orgId = params.orgId
+      - pattern-not-inside: |
+          ...
+          await requireOrgMember($ORGID, ...)
+          ...
+    message: "Org ID from client not verified. Use requireOrgMember() guard."
+    languages: [typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass"
+
+  # =========================================================================
+  # Crypto & Secrets
+  # =========================================================================
+
+  - id: weak-random
+    pattern-either:
+      - pattern: Math.random()
+      - pattern: crypto.pseudoRandomBytes(...)
+    message: "Weak random generator. Use crypto.randomBytes() for security."
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-330: Use of Insufficiently Random Values"
+
+  - id: eval-usage
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+    message: "eval() can execute arbitrary code. Avoid using eval."
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-94: Code Injection"
+
+  # =========================================================================
+  # SSRF Prevention
+  # =========================================================================
+
+  - id: user-controlled-fetch
+    patterns:
+      - pattern-either:
+        - pattern: fetch($URL)
+        - pattern: axios.get($URL)
+        - pattern: axios.post($URL, ...)
+      - metavariable-pattern:
+          metavariable: $URL
+          patterns:
+            - pattern-not: |
+                "..."
+            - pattern-not: |
+                `https://api.stripe.com/...`
+            - pattern-not: |
+                process.env.$VAR
+    message: "URL may be user-controlled. Validate and allowlist URLs to prevent SSRF."
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery (SSRF)"
+
+  # =========================================================================
+  # Logging & Error Handling
+  # =========================================================================
+
+  - id: sensitive-data-in-log
+    patterns:
+      - pattern-either:
+        - pattern: console.log(..., $VAR, ...)
+        - pattern: console.error(..., $VAR, ...)
+        - pattern: logger.info(..., $VAR, ...)
+        - pattern: logger.error(..., $VAR, ...)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (password|secret|token|key|credential|ssn|credit_card)
+    message: "Potential sensitive data in logs. Redact before logging."
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-532: Information Exposure Through Log Files"
+
+  - id: stack-trace-in-response
+    patterns:
+      - pattern: |
+          return NextResponse.json({ error: $ERR.stack, ... })
+      - pattern: |
+          return NextResponse.json({ message: $ERR.stack, ... })
+    message: "Stack trace in API response. Use generic error messages."
+    languages: [typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-209: Information Exposure Through Error Message"
+
+  # =========================================================================
+  # Next.js Specific
+  # =========================================================================
+
+  - id: missing-csrf-in-form
+    patterns:
+      - pattern: |
+          <form action=$ACTION ...>
+            ...
+          </form>
+      - pattern-not: |
+          <form action=$ACTION ...>
+            ...
+            <input type="hidden" name="csrf" ...>
+            ...
+          </form>
+    message: "Form may be missing CSRF token. Use Next.js server actions or add CSRF."
+    languages: [tsx]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-352: Cross-Site Request Forgery"

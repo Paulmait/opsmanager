@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm test:*)",
+      "Bash(dir /b supabasefunctions)",
+      "Bash(pnpm exec vitest:*)",
+      "Bash(pnpm audit:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm run typecheck:*)",
+      "Bash(STRIPE_SECRET_KEY=\"sk_test_fake\" STRIPE_WEBHOOK_SECRET=\"whsec_test_fake_secret\" EMAIL_WEBHOOK_SECRET=\"test-email-webhook-secret-16chars\" SUPABASE_SERVICE_ROLE_KEY=\"test-service-role-key\" pnpm test:run:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

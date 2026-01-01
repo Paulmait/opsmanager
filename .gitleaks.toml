@@ -1,0 +1,120 @@
+# =============================================================================
+# Gitleaks Configuration - Ops Manager
+# =============================================================================
+# Detects secrets in git history and file system
+#
+# Installation:
+#   Windows: winget install Gitleaks
+#            OR download from https://github.com/gitleaks/gitleaks/releases
+#   macOS: brew install gitleaks
+#   Linux: See https://github.com/gitleaks/gitleaks#installing
+#
+# Usage:
+#   gitleaks detect --source . --config .gitleaks.toml --no-git
+#   gitleaks detect --source . --config .gitleaks.toml  # Includes git history
+#
+# =============================================================================
+
+title = "Ops Manager Secrets Detection"
+
+[extend]
+# Extend the default rules
+useDefault = true
+
+# =============================================================================
+# Custom Rules
+# =============================================================================
+
+[[rules]]
+id = "supabase-service-role-key"
+description = "Supabase Service Role Key"
+regex = '''eyJ[A-Za-z0-9_-]{50,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'''
+keywords = ["supabase", "service_role", "eyJ"]
+entropy = 4.5
+
+[[rules]]
+id = "stripe-live-key"
+description = "Stripe Live Secret Key"
+regex = '''sk_live_[a-zA-Z0-9]{24,}'''
+keywords = ["sk_live"]
+
+[[rules]]
+id = "stripe-test-key"
+description = "Stripe Test Secret Key (should not be committed)"
+regex = '''sk_test_[a-zA-Z0-9]{24,}'''
+keywords = ["sk_test"]
+entropy = 3.0
+
+[[rules]]
+id = "stripe-webhook-secret"
+description = "Stripe Webhook Secret"
+regex = '''whsec_[a-zA-Z0-9]{24,}'''
+keywords = ["whsec_"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
+keywords = ["api_key", "apikey", "api-key"]
+
+[[rules]]
+id = "email-password"
+description = "Email Password"
+regex = '''(?i)(email[_-]?password|smtp[_-]?password)\s*[:=]\s*['"][^'"]{8,}['"]'''
+keywords = ["email_password", "smtp_password"]
+
+# =============================================================================
+# Allowlist - False Positives
+# =============================================================================
+
+[allowlist]
+description = "Global allowlist"
+
+# Paths to ignore
+paths = [
+  '''node_modules/''',
+  '''\.next/''',
+  '''\.git/''',
+  '''pnpm-lock\.yaml''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  '''\.env\.example''',
+  '''TESTING\.md''',
+  '''tests/''',
+  '''e2e/''',
+  '''\.semgrep\.yml''',
+  '''\.gitleaks\.toml''',
+]
+
+# Regex patterns to ignore
+regexes = [
+  # Test/example values
+  '''sk_test_fake''',
+  '''whsec_test_fake''',
+  '''test-key-for-testing''',
+  '''test-email-webhook-secret''',
+  # Documentation examples
+  '''sk_live_abc123''',
+  '''example\.com''',
+  # Base64 encoded images
+  '''data:image/[a-z]+;base64,''',
+]
+
+# Commit hashes to ignore
+commits = []
+
+# =============================================================================
+# Stopwords
+# =============================================================================
+
+[allowlist.stopwords]
+# Words that should not trigger alerts
+words = [
+  "example",
+  "sample",
+  "test",
+  "fake",
+  "placeholder",
+  "dummy",
+  "mock",
+]

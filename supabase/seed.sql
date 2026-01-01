@@ -1,0 +1,31 @@
+-- =============================================================================
+-- Seed Data for Local Development
+-- =============================================================================
+-- This file contains test data for local development only.
+-- DO NOT run this in production.
+--
+-- Note: User accounts must be created through Supabase Auth (Dashboard or API).
+-- The trigger on auth.users will automatically create profiles.
+-- =============================================================================
+
+-- Development seed data can be added here after users are created via Auth.
+-- Example:
+--
+-- After creating a test user in Supabase Dashboard with email test@example.com,
+-- you can update their profile:
+--
+-- UPDATE profiles
+-- SET full_name = 'Test User'
+-- WHERE email = 'test@example.com';
+--
+-- Or add audit log entries:
+--
+-- INSERT INTO audit_logs (organization_id, actor_id, action, resource_type, metadata)
+-- SELECT
+--     p.organization_id,
+--     p.id,
+--     'user.login',
+--     'auth',
+--     '{"source": "seed"}'::jsonb
+-- FROM profiles p
+-- WHERE p.email = 'test@example.com';
