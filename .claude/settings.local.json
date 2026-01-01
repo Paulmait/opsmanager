@@ -20,7 +20,8 @@
       "Bash(git commit:*)",
       "Bash(where:*)",
       "Bash(npx supabase --version)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "WebFetch(domain:supabase.com)"
     ]
   }
 }
